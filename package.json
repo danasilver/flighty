@@ -1,0 +1,17 @@
+{
+  "name": "flighty",
+  "version": "0.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "d3": "~3.4.6"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/danasilver/flighty.git"
+  },
+  "author": "anonymous",
+  "license": "MIT",
+  "private": true
+}
