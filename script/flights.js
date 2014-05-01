@@ -26,7 +26,7 @@ var aliases = {
   'Avg. Fare Lg. Car.': 'fare_lg'
 };
 
-var csvPath = path.resolve(__dirname, '../data/csv')
+var csvPath = path.resolve(__dirname, '../data/flights/csv')
   , csvFileNames = fs.readdirSync(csvPath)
   , combinedJSON = [];
 
@@ -50,4 +50,4 @@ for (var i = 0, l = csvFileNames.length; i < l; i++) {
   }
 }
 
-fs.writeFileSync(path.resolve(__dirname, '../data/historic-data.json'), JSON.stringify(combinedJSON));
+fs.writeFileSync(path.resolve(__dirname, '../data/flights/flights.json'), JSON.stringify(combinedJSON));
