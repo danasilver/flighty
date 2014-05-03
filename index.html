@@ -6,15 +6,59 @@
 body {
   font-family: "Helvetica Neue", Helvetica, sans-serif;
 }
+h1, h2, h3, p, label, option, input, div {
+  font-weight: 300;
+}
 svg {
   float: left;
 }
 .interface {
-  width: 300px;
+  width: 350px;
   float: left;
+  padding-top: 20px;
+}
+.flight-list-wrapper {
+  margin: 20px 0;
+  border: 1px solid lightgrey;
+  box-sizing: border-box;
+  height: 400px;
+}
+.flight-list-wrapper h3 {
+  margin: 10px;
+}
+.flight-list-wrapper h3 small {
+  margin-left: 10px;
+  color: #666;
+  font-size: 14px;
+}
+.flight-list {
+  list-style: none;
+  margin-bottom: 10px;
+  overflow: scroll;
+  padding: 0;
+  height: 349px;
+}
+.flight-list .flight {
+  padding: 10px;
+}
+.flight-list .flight:hover {
+  background-color: #eee;
+}
+.flight-list .flight p {
+  margin: 7px 0;
+}
+.airport-departure,
+.airport-arrival,
+.times-departure span,
+.times-arrival span,
+.flight-num {
+  font-weight: 500;
+}
+.flight-count-dest {
+  min-height: 1em;
 }
 .select2-container {
-  width: 300px;
+  width: 290px;
 }
 .state {
   fill: lightgrey;
@@ -35,9 +79,22 @@ path.arc {
 <body>
 <svg id="map"></svg>
 <div class="interface">
-  <h3>Origin</h3>
-  <select id="origin"></select>
-  <h4></h4>
+  <label>Origin:
+    <select id="origin"></select>
+  </label>
+  <p class="flight-count-dest"></p>
+  <div class="flight-list-wrapper">
+    <h3>Flights<small>Click a destination to refine flights.</small></h3>
+    <ul class="flight-list">
+
+      <li class="flight">
+        <p><span class="airport-departure"></span> to <span class="airport-arrival"></span> | Flight #<span class="flight-num"></span></p>
+        <p class="times-departure">Leaving <span></span></p>
+        <p class="times-arrival">Arriving <span></span></p>
+      </li>
+
+    </ul>
+  </div>
 </div>
 <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 <script src="js/d3.geo.js"></script>
@@ -48,7 +105,14 @@ path.arc {
 <script>
 var flightstatsId = "88693368",
     flightstatsKey = "2b087f77a7151f8283938c3df55358e1"
-    flightstatsStatusBaseUrl = "http://flightstats-api.herokuapp.com/flex/flightstatus/rest/v2/json/airport/status/";;
+    flightstatsStatusBaseUrl = "http://flightstats-api.herokuapp.com/flex/flightstatus/rest/v2/json/airport/status/";
+
+var flightCountDest = d3.select(".flight-count-dest"),
+    flightList = d3.select(".flight-list"),
+    flightListItemTemplate = flightList.select(".flight").remove().node();
+
+var format = d3.time.format("%A, %b %e at %I:%M %p"),
+    iso = d3.time.format.utc("%Y-%m-%dT%H:%M:%S.%LZ");
 
 var width = 950,
     height = window.innerHeight - 50;
@@ -130,6 +194,8 @@ function plot(error, states, apts) {
             .duration(250)
             .attr("fill", "steelblue");
 
+        updateArcs([]);
+
         var statusUrl = flightstatsStatusBaseUrl + airport + "/dep/" +
                         y + "/" + m + "/" + d + "/" + h +
                         "?appId=" + flightstatsId +
@@ -148,8 +214,22 @@ function plot(error, states, apts) {
             return destinations.has(airport.iata);
           }).transition().duration(250).attr("fill", "red");
 
+          flightCountDest.text(flights.flightStatuses.length + " flights from " + airport + " in the next 6 hours.")
           updateArcs(links);
+          updateFlightList(flights.flightStatuses);
         });
+
+        function updateFlightList(flights) {
+          var flights = flightList.selectAll(".flight").data(flights)
+          flights.enter().append(function() { return flightListItemTemplate.cloneNode(true); })
+              .attr("opacity", 0).transition().duration(250).attr("opacity", 1);
+          flights.exit().attr("opacity", 1).transition().duration(250).attr("opacity", 0).remove();
+          flights.select(".airport-departure").text(function(d) { return d.departureAirportFsCode; });
+          flights.select(".airport-arrival").text(function(d) { return d.arrivalAirportFsCode; });
+          flights.select(".flight-num").text(function(d) { return d.flightNumber; });
+          flights.select(".times-departure span").text(function(d) { return format(iso.parse(d.departureDate.dateUtc)); });
+          flights.select(".times-arrival span").text(function(d) { return format(iso.parse(d.arrivalDate.dateUtc)); });
+        }
 
         function updateArcs(links) {
           var arcs = arcsGroup.selectAll("path").data(links);
