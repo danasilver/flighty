@@ -1,31 +1,67 @@
 <!DOCTYPE html>
 <head>
 <meta charset="utf-8">
+<link rel="stylesheet" href="js/select2/select2.css">
 <style>
+body {
+  font-family: "Helvetica Neue", Helvetica, sans-serif;
+}
+svg {
+  float: left;
+}
+.interface {
+  width: 300px;
+  float: left;
+}
+.select2-container {
+  width: 300px;
+}
 .state {
-  fill: #fff;
-  stroke: #000;
+  fill: lightgrey;
+  stroke: #fff;
 }
 .airport {
-  fill: steelblue;
+  opacity: .8;
+  stroke: #fff;
+  stroke-width: .5px;
 }
 </style>
 </head>
 <body>
+<svg id="map"></svg>
+<div class="interface">
+  <h3>Origin</h3>
+  <select id="origin"></select>
+  <h4></h4>
+</div>
 <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+<script src="js/d3.geo.js"></script>
 <script src="http://d3js.org/topojson.v1.min.js"></script>
 <script src="http://d3js.org/queue.v1.min.js"></script>
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+<script src="js/select2/select2.min.js"></script>
 <script>
-var width = 800,
-    height = 500;
+var flightstatsId = "88693368",
+    flightstatsKey = "2b087f77a7151f8283938c3df55358e1"
+    flightstatsStatusBaseUrl = "http://flightstats-api.herokuapp.com/flex/flightstatus/rest/v2/json/airport/status/";;
 
-var svg = d3.select("body").append("svg")
+var width = 950,
+    height = window.innerHeight - 50;
+
+var svg = d3.select("#map")
     .attr("height", height)
     .attr("width", width);
 
-var projection = d3.geo.albersUsa()
-    .translate([width / 2, height / 2])
-    .scale([1000]);
+var select = d3.select("#origin");
+
+var size = d3.scale.sqrt()
+    .range([1, 20]);
+
+var projection = d3.geo.azimuthal()
+    .mode("equidistant")
+    .origin([-98, 38])
+    .scale(1200)
+    .translate([width / 2, height / 2]);
 
 var path = d3.geo.path()
     .projection(projection);
@@ -35,20 +71,65 @@ queue()
     .defer(d3.json, "data/airports/airports.json")
     .await(plot);
 
-function plot(error, states, airports) {
+function plot(error, states, apts) {
+  size.domain(d3.extent(apts, function(d) { return d.count; }));
+
   svg.selectAll(".state")
       .data(states.features)
     .enter().append("path")
       .attr("class", "state")
       .attr("d", path);
 
-  svg.selectAll(".airport")
-      .data(airports)
+  var airports = svg.selectAll(".airport")
+      .data(apts)
     .enter().append("circle")
       .attr("class", "airport")
       .attr("cx", function(d) { return projection([d.longitude, d.latitude])[0]; })
       .attr("cy", function(d) { return projection([d.longitude, d.latitude])[1]; })
-      .attr("r", 1);
+      .attr("r", function(d) { return size(d.count); })
+      .attr("fill", "steelblue")
+      .sort(function(a, b) { return b.count - a.count; });
+
+  select.selectAll("option")
+      .data(apts)
+    .enter().append("option")
+      .attr("value", function(d) { return d.iata; })
+      .text(function(d) { return d.iata + " - " + d.name; });
+
+  $("#origin").select2()
+      .on("change", function() {
+        var airport = $(this).val(),
+            date = new Date(),
+            y = date.getFullYear(),
+            m = date.getMonth() + 1,
+            d = date.getDate(),
+            h = date.getHours();
+
+        airports.filter(function(d) { return d.iata === airport; })
+            .transition()
+            .duration(250)
+            .attr("fill", "green");
+        airports.filter(function(d) { return d.iata !== airport; })
+            .transition()
+            .duration(250)
+            .attr("fill", "steelblue");
+
+        var statusUrl = flightstatsStatusBaseUrl + airport + "/dep/" +
+                        y + "/" + m + "/" + d + "/" + h +
+                        "?appId=" + flightstatsId +
+                        "&appKey=" + flightstatsKey +
+                        "&utc=false&numHours=6";
+        d3.json(statusUrl, function(error, flights) {
+          var destinations = d3.set();
+          flights.flightStatuses.forEach(function(flight) {
+            destinations.add(flight.arrivalAirportFsCode);
+          });
+          airports.filter(function(airport) {
+            return destinations.has(airport.iata);
+          }).transition().duration(250).attr("fill", "red");
+          d3.select("h4").text(flights.flightStatuses.length + " flights in the next 6 hours.")
+        });
+      });
 }
 </script>
 </body>

@@ -4,34 +4,31 @@ var fs = require('fs')
   , d3 = require('d3')
   , path = require('path');
 
-var airportsFilePath = path.resolve(__dirname, '../data/airports/airports-clean.csv')
+var airportsFilePath = path.resolve(__dirname, '../data/airports/airports.csv')
+  , flightsFilePath = path.resolve(__dirname, '../data/airports/flights-airport.csv')
   , airportsContents = fs.readFileSync(airportsFilePath, 'utf8')
-  , parsedAirports = d3.csv.parse(airportsContents);
+  , flightsContents = fs.readFileSync(flightsFilePath, 'utf8')
+  , parsedAirports = d3.csv.parse(airportsContents)
+  , parsedFlights = d3.csv.parse(flightsContents);
 
-var states = ["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
-              "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
-              "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
-              "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
-              "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "DC"];
+var originAirports = {};
+
+for (var i = 0, l = parsedFlights.length; i < l; i++) {
+  var apt = parsedFlights[i].origin;
+  if (originAirports[apt]) {
+    originAirports[apt] += +parsedFlights[i].count;
+  } else {
+    originAirports[apt] = +parsedFlights[i].count;
+  }
+}
 
 parsedAirports = parsedAirports.filter(function(d) {
-  for (var i = 0; i < states.length; i++) if (d.State === states[i]) return true;
+  if (''+d.iata in originAirports) return true;
   return false;
 });
 
 parsedAirports.forEach(function(d, i) {
-  d.latitude = degreesToDecimal(d.ARPLatitude);
-  d.longitude = degreesToDecimal(d.ARPLongitude);
+  d.count = originAirports[d.iata];
 });
 
 fs.writeFileSync(path.resolve(__dirname, '../data/airports/airports.json'), JSON.stringify(parsedAirports));
-
-function degreesToDecimal(degrees) {
-  var parts = degrees.split('-');
-  parts[3] = parts[2].substr(7, 1);
-  parts[2] = parts[2].substr(0, 7);
-
-  var unsigned = +parts[0] + (+parts[1] / 60) + (+parts[2] / 3600);
-
-  return (parts[3] === 'W' || parts[3] === 'S') ? 0 - unsigned : unsigned;
-}
