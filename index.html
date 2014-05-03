@@ -51,7 +51,8 @@ svg {
 .airport-arrival,
 .times-departure span,
 .times-arrival span,
-.flight-num {
+.flight-num,
+.count {
   font-weight: 500;
 }
 .flight-count-dest {
@@ -73,6 +74,7 @@ path.arc {
   pointer-events: none;
   fill: none;
   stroke: #000;
+  opacity: .5;
 }
 </style>
 </head>
@@ -93,8 +95,13 @@ path.arc {
         <p class="times-arrival">Arriving <span></span></p>
       </li>
 
+      <li class="flight">
+        <p><span class="count"></span> flights from <span class="airport-departure"></span> to <span class="airport-arrival"></span></span>
+      </li>
+
     </ul>
   </div>
+  <h4 class="selected-destination"></h4>
 </div>
 <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 <script src="js/d3.geo.js"></script>
@@ -109,7 +116,10 @@ var flightstatsId = "88693368",
 
 var flightCountDest = d3.select(".flight-count-dest"),
     flightList = d3.select(".flight-list"),
-    flightListItemTemplate = flightList.select(".flight").remove().node();
+    flightListItemTemplate = flightList.select(".flight:first-child").remove().node(),
+    flightListGroupTemplate = flightList.select(".flight").remove().node();
+
+var selectedDestination = d3.select(".selected-destination");
 
 var format = d3.time.format("%A, %b %e at %I:%M %p"),
     iso = d3.time.format.utc("%Y-%m-%dT%H:%M:%S.%LZ");
@@ -141,9 +151,11 @@ queue()
     .await(plot);
 
 function plot(error, states, apts) {
-  var locationByAirport = d3.map();
+  var locationByAirport = d3.map(),
+      nameByIata = d3.map();
   apts.forEach(function(airport) {
     locationByAirport.set(airport.iata, [airport.longitude, airport.latitude]);
+    nameByIata.set(airport.iata, airport.name);
   });
 
   var arc = d3.geo.greatArc()
@@ -201,6 +213,7 @@ function plot(error, states, apts) {
                         "?appId=" + flightstatsId +
                         "&appKey=" + flightstatsKey +
                         "&utc=false&numHours=6";
+        var possibleDestinations;
         d3.json(statusUrl, function(error, flights) {
           var destinations = d3.set(),
               links = [];
@@ -210,20 +223,52 @@ function plot(error, states, apts) {
             links.push({source: origin, target: destination});
             destinations.add(destination);
           });
-          airports.filter(function(airport) {
+          possibleDestinations = airports.filter(function(airport) {
             return destinations.has(airport.iata);
-          }).transition().duration(250).attr("fill", "red");
+          });
+          possibleDestinations.transition().duration(250).attr("fill", "red");
 
           flightCountDest.text(flights.flightStatuses.length + " flights from " + airport + " in the next 6 hours.")
           updateArcs(links);
-          updateFlightList(flights.flightStatuses);
+          updateFlightGroup(flights.flightStatuses);
         });
 
-        function updateFlightList(flights) {
-          var flights = flightList.selectAll(".flight").data(flights)
-          flights.enter().append(function() { return flightListItemTemplate.cloneNode(true); })
-              .attr("opacity", 0).transition().duration(250).attr("opacity", 1);
-          flights.exit().attr("opacity", 1).transition().duration(250).attr("opacity", 0).remove();
+        function updateFlightGroup(flightsData) {
+          var flightsByDestination = d3.nest()
+              .key(function(d) { return d.arrivalAirportFsCode; })
+              .entries(flightsData);
+          var flights = flightList.selectAll(".flight").data(flightsByDestination);
+          flights.enter().append(function() { return flightListGroupTemplate.cloneNode(true); });
+          flights.exit().remove();
+          flights.select(".count").text(function(d) { return d.values.length; });
+          flights.select(".airport-departure").text(function(d) { return d.values[0].departureAirportFsCode; });
+          flights.select(".airport-arrival").text(function(d) { return d.key; });
+          flights
+              .on("mouseover", mouseover)
+              .on("mouseout", mouseout);
+          possibleDestinations
+              .on("mouseover", mouseover)
+              .on("mouseout", mouseout);
+
+          function mouseover() {
+            var moused = d3.select(this)
+                iata = moused.classed("flight") ? moused.select(".airport-arrival").text() : moused.datum().iata;
+            possibleDestinations.filter(function(d) { return d.iata !== iata; })
+                .transition().duration(100)
+                .style("opacity", ".2");
+            selectedDestination.text(nameByIata.get(iata));
+          }
+
+          function mouseout() {
+            possibleDestinations.transition().duration(100).style("opacity", ".8");
+            selectedDestination.text("")
+          }
+        }
+
+        function updateFlightList(flightsData) {
+          var flights = flightList.selectAll(".flight").data(flightsData);
+          flights.enter().append(function() { return flightListItemTemplate.cloneNode(true); });
+          flights.exit().remove();
           flights.select(".airport-departure").text(function(d) { return d.departureAirportFsCode; });
           flights.select(".airport-arrival").text(function(d) { return d.arrivalAirportFsCode; });
           flights.select(".flight-num").text(function(d) { return d.flightNumber; });
