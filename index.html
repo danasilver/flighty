@@ -25,6 +25,11 @@ svg {
   stroke: #fff;
   stroke-width: .5px;
 }
+path.arc {
+  pointer-events: none;
+  fill: none;
+  stroke: #000;
+}
 </style>
 </head>
 <body>
@@ -72,6 +77,15 @@ queue()
     .await(plot);
 
 function plot(error, states, apts) {
+  var locationByAirport = d3.map();
+  apts.forEach(function(airport) {
+    locationByAirport.set(airport.iata, [airport.longitude, airport.latitude]);
+  });
+
+  var arc = d3.geo.greatArc()
+    .source(function(d) { return locationByAirport.get(d.source); })
+    .target(function(d) { return locationByAirport.get(d.target); });
+
   size.domain(d3.extent(apts, function(d) { return d.count; }));
 
   svg.selectAll(".state")
@@ -95,6 +109,8 @@ function plot(error, states, apts) {
     .enter().append("option")
       .attr("value", function(d) { return d.iata; })
       .text(function(d) { return d.iata + " - " + d.name; });
+
+  var arcsGroup = svg.append("g");
 
   $("#origin").select2()
       .on("change", function() {
@@ -120,15 +136,29 @@ function plot(error, states, apts) {
                         "&appKey=" + flightstatsKey +
                         "&utc=false&numHours=6";
         d3.json(statusUrl, function(error, flights) {
-          var destinations = d3.set();
+          var destinations = d3.set(),
+              links = [];
           flights.flightStatuses.forEach(function(flight) {
-            destinations.add(flight.arrivalAirportFsCode);
+            var origin = flight.departureAirportFsCode,
+                destination = flight.arrivalAirportFsCode;
+            links.push({source: origin, target: destination});
+            destinations.add(destination);
           });
           airports.filter(function(airport) {
             return destinations.has(airport.iata);
           }).transition().duration(250).attr("fill", "red");
-          d3.select("h4").text(flights.flightStatuses.length + " flights in the next 6 hours.")
+
+          updateArcs(links);
         });
+
+        function updateArcs(links) {
+          var arcs = arcsGroup.selectAll("path").data(links);
+          arcs.enter().append("path").attr("opacity", 0).transition().duration(250).attr("opacity", 1);
+          arcs.exit().attr("opacity", 1).transition().duration(250).attr("opacity", 0).remove();
+          arcs
+              .attr("class", "arc")
+              .attr("d", function(d) { try { return path(arc(d)); } catch(e) {}; });
+        }
       });
 }
 </script>
