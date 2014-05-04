@@ -31,20 +31,23 @@ svg {
   color: #666;
   font-size: 14px;
 }
-.flight-list {
+.flight-list, .flight-list-items {
   list-style: none;
   margin-bottom: 10px;
   overflow: scroll;
   padding: 0;
   height: 349px;
 }
-.flight-list .flight {
+.flight-list .flight,
+.flight-list-items .flight {
   padding: 10px;
 }
-.flight-list .flight:hover {
+.flight-list .flight:hover,
+.flight-list-items .flight:hover{
   background-color: #eee;
 }
-.flight-list .flight p {
+.flight-list .flight,
+.flight-list-items .flight p {
   margin: 7px 0;
 }
 .airport-departure,
@@ -88,13 +91,14 @@ path.arc {
   <p class="flight-count-dest"></p>
   <div class="flight-list-wrapper">
     <h3>Flights<small>Click a destination to refine flights.</small></h3>
-    <ul class="flight-list">
-      <li class="flight">
+    <ul class="flight-list-items" style="display: none">
+    <li class="flight">
         <p><span class="airport-departure"></span> to <span class="airport-arrival"></span> | Flight #<span class="flight-num"></span></p>
         <p class="times-departure">Leaving <span></span></p>
         <p class="times-arrival">Arriving <span></span></p>
       </li>
-
+    </ul> 
+    <ul class="flight-list">
       <li class="flight">
         <p><span class="count"></span> flights from <span class="airport-departure"></span> to <span class="airport-arrival"></span></span>
       </li>
@@ -114,7 +118,8 @@ var flightstatsId = "88693368",
 
 var flightCountDest = d3.select(".flight-count-dest"),
     flightList = d3.select(".flight-list"),
-    flightListItemTemplate = flightList.select(".flight:first-child").remove().node(),
+    flightListItems = d3.select(".flight-list-items"),
+    flightListItemTemplate = flightListItems.select(".flight").remove().node();
     flightListGroupTemplate = flightList.select(".flight").remove().node();
 
 var selectedDestination = d3.select(".selected-destination");
@@ -178,7 +183,7 @@ function plot(error, states, apts) {
       .attr("cy", function(d) { return projection([d.longitude, d.latitude])[1]; })
       .attr("r", function(d) { return size(d.count); })
       .attr("fill", "steelblue")
-      .sort(function(a, b) { return b.count - a.count; });
+      .sort(function(a, b) { return b.count - a.cItemsunt; });
 
   select.selectAll("option")
       .data(apts)
@@ -235,6 +240,8 @@ function plot(error, states, apts) {
           flightCountDest.text(flights.length + " flights from " + airport + " in the next 6 hours.")
           updateArcs(links);
           updateFlightGroup(flights);
+
+
         });
 
         function updateFlightGroup(flightsData) {
@@ -249,14 +256,34 @@ function plot(error, states, apts) {
           flights.select(".airport-arrival").text(function(d) { return d.key; });
           flights
               .on("mouseover", mouseover)
-              .on("mouseout", mouseout);
+              .on("mouseout", mouseout)
+              .on("click", click);
           possibleDestinations
               .on("mouseover", mouseover)
-              .on("mouseout", mouseout);
+              .on("mouseout", mouseout)
+              .on("click", click);
+
+          function click (){
+            d3.select(".flight-list").style("display", "none");
+            d3.select(".flight-list-items").style("display", null);
+            var clicked = d3.select(this)
+                iata = clicked.classed("flight") ? clicked.select(".airport-arrival").text() : clicked.datum().iata;
+            var flightItems = flightListItems.selectAll(".flight")
+                .data(flightsData.filter(function(d){ return d.arrivalAirportFsCode === iata; }));
+            flightItems.enter().append(function() { return flightListItemTemplate.cloneNode(true); });
+            flightItems.exit().remove();
+            flightItems.select(".airport-departure").text(function(d) { return d.departureAirportFsCode; });
+            flightItems.select(".airport-arrival").text(function(d) { return d.arrivalAirportFsCode; });
+            flightItems.select(".flight-num").text(function(d) { return d.flightNumber; });
+            flightItems.select(".times-departure span").text(function(d) { return format(iso.parse(d.departureDate.dateUtc)); });
+            flightItems.select(".times-arrival span").text(function(d) { return format(iso.parse(d.arrivalDate.dateUtc)); });
+            possibleDestinations.on("mouseout", null);
+            flights.on("mouseover", null).on("mouseout", null);
+          }
 
           function mouseover() {
             var moused = d3.select(this)
-                iata = moused.classed("flight") ? moused.select(".airport-arrival").text() : moused.datum().iata;
+                iata = moused.classed("flight") ? moused.select(".airport-arrival").text() : moused.datum().iata; 
             possibleDestinations.filter(function(d) { return d.iata !== iata; })
                 .transition().duration(100)
                 .style("opacity", ".2");
@@ -264,21 +291,11 @@ function plot(error, states, apts) {
           }
 
           function mouseout() {
-            possibleDestinations.transition().duration(100).style("opacity", ".8");
-            selectedDestination.text("")
+              possibleDestinations.transition().duration(100).style("opacity", ".8");
+              selectedDestination.text("")
           }
         }
-
-        function updateFlightList(flightsData) {
-          var flights = flightList.selectAll(".flight").data(flightsData);
-          flights.enter().append(function() { return flightListItemTemplate.cloneNode(true); });
-          flights.exit().remove();
-          flights.select(".airport-departure").text(function(d) { return d.departureAirportFsCode; });
-          flights.select(".airport-arrival").text(function(d) { return d.arrivalAirportFsCode; });
-          flights.select(".flight-num").text(function(d) { return d.flightNumber; });
-          flights.select(".times-departure span").text(function(d) { return format(iso.parse(d.departureDate.dateUtc)); });
-          flights.select(".times-arrival span").text(function(d) { return format(iso.parse(d.arrivalDate.dateUtc)); });
-        }
+          
 
         function updateArcs(links) {
           var arcs = arcsGroup.selectAll("path").data(links);
