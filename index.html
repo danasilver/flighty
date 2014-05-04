@@ -14,7 +14,7 @@ body {
   font-size: 48px;
   margin-left: 50px;
 }
-h1, h2, h3, p, label, option, input, div {
+h1, h2, h3, p, label, option, input {
   font-weight: 300;
 }
 svg {
@@ -275,11 +275,17 @@ function plot(error, states, apts) {
               .on("mouseout", mouseout)
               .on("click", click);
 
-          function click (){
+          function click() {
             d3.select(".flight-list").style("display", "none");
             d3.select(".flight-list-items").style("display", null);
-            var clicked = d3.select(this)
-                iata = clicked.classed("flight") ? clicked.select(".airport-arrival").text() : clicked.datum().iata;
+            var clicked = d3.select(this),
+                iata = clicked.classed("flight") ? clicked.select(".airport-arrival").text() : clicked.datum().iata,
+                destination = possibleDestinations.filter(function(airport) { return airport.iata === iata; });
+
+            possibleDestinations.on("mouseover", null).on("mouseout", null).style("opacity", ".2");
+            flights.on("mouseover", null).on("mouseout", null);
+            destination.style("opacity", ".8");
+
             var flightItems = flightListItems.selectAll(".flight")
                 .data(flightsData.filter(function(d){ return d.arrivalAirportFsCode === iata; }));
             flightItems.enter().append(function() { return flightListItemTemplate.cloneNode(true); });
@@ -289,8 +295,6 @@ function plot(error, states, apts) {
             flightItems.select(".flight-num").text(function(d) { return d.flightNumber; });
             flightItems.select(".times-departure span").text(function(d) { return format(iso.parse(d.departureDate.dateUtc)); });
             flightItems.select(".times-arrival span").text(function(d) { return format(iso.parse(d.arrivalDate.dateUtc)); });
-            possibleDestinations.on("mouseout", null);
-            flights.on("mouseover", null).on("mouseout", null);
           }
 
           function mouseover() {
