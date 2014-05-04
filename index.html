@@ -152,10 +152,12 @@ queue()
 
 function plot(error, states, apts) {
   var locationByAirport = d3.map(),
-      nameByIata = d3.map();
+      nameByIata = d3.map(),
+      iatas = d3.set();
   apts.forEach(function(airport) {
     locationByAirport.set(airport.iata, [airport.longitude, airport.latitude]);
     nameByIata.set(airport.iata, airport.name);
+    iatas.add(airport.iata);
   });
 
   var arc = d3.geo.greatArc()
@@ -219,7 +221,9 @@ function plot(error, states, apts) {
         d3.json(statusUrl, function(error, flights) {
           var destinations = d3.set(),
               links = [];
-          flights.flightStatuses.forEach(function(flight) {
+
+          flights = flights.flightStatuses.filter(function(flight) { return iatas.has(flight.arrivalAirportFsCode); });
+          flights.forEach(function(flight) {
             var origin = flight.departureAirportFsCode,
                 destination = flight.arrivalAirportFsCode;
             links.push({source: origin, target: destination});
@@ -230,9 +234,9 @@ function plot(error, states, apts) {
           });
           possibleDestinations.transition().duration(250).attr("fill", "red");
 
-          flightCountDest.text(flights.flightStatuses.length + " flights from " + airport + " in the next 6 hours.")
+          flightCountDest.text(flights.length + " flights from " + airport + " in the next 6 hours.")
           updateArcs(links);
-          updateFlightGroup(flights.flightStatuses);
+          updateFlightGroup(flights);
         });
 
         function updateFlightGroup(flightsData) {
