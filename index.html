@@ -6,6 +6,14 @@
 body {
   font-family: "Helvetica Neue", Helvetica, sans-serif;
 }
+.map {
+  width: 950px;
+  float: left;
+}
+.map h1 {
+  font-size: 48px;
+  margin-left: 50px;
+}
 h1, h2, h3, p, label, option, input, div {
   font-weight: 300;
 }
@@ -82,7 +90,10 @@ path.arc {
 </style>
 </head>
 <body>
-<svg id="map"></svg>
+<div class="map">
+  <h1>flighty</h1>
+  <svg id="map"></svg>
+</div>
 <div class="interface">
   <label>Origin:
     <select id="origin"></select>
@@ -100,7 +111,7 @@ path.arc {
     </ul> 
     <ul class="flight-list">
       <li class="flight">
-        <p><span class="count"></span> flights from <span class="airport-departure"></span> to <span class="airport-arrival"></span></span>
+        <p><span class="count"></span> <span class="pluralize"></span> from <span class="airport-departure"></span> to <span class="airport-arrival"></span></span>
       </li>
     </ul>
   </div>
@@ -128,7 +139,7 @@ var format = d3.time.format("%A, %b %e at %I:%M %p"),
     iso = d3.time.format.utc("%Y-%m-%dT%H:%M:%S.%LZ");
 
 var width = 950,
-    height = window.innerHeight - 50;
+    height = 600;
 
 var svg = d3.select("#map")
     .attr("height", height)
@@ -252,6 +263,7 @@ function plot(error, states, apts) {
           flights.enter().append(function() { return flightListGroupTemplate.cloneNode(true); });
           flights.exit().remove();
           flights.select(".count").text(function(d) { return d.values.length; });
+          flights.select(".pluralize").text(function(d) { return d.values.length > 1 ? "flights" : "flight"; });
           flights.select(".airport-departure").text(function(d) { return d.values[0].departureAirportFsCode; });
           flights.select(".airport-arrival").text(function(d) { return d.key; });
           flights
