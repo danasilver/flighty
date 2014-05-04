@@ -188,6 +188,7 @@ function plot(error, states, apts) {
 
   var arcsGroup = svg.append("g");
 
+  var possibleDestinations = airports;
   $("#origin").select2()
       .on("change", function() {
         var airport = $(this).val(),
@@ -213,7 +214,8 @@ function plot(error, states, apts) {
                         "?appId=" + flightstatsId +
                         "&appKey=" + flightstatsKey +
                         "&utc=false&numHours=6";
-        var possibleDestinations;
+
+        possibleDestinations.on("mouseover", null).on("mouseout", null);
         d3.json(statusUrl, function(error, flights) {
           var destinations = d3.set(),
               links = [];
