@@ -16,6 +16,7 @@ body {
 }
 h1, h2, h3, p, label, option, input {
   font-weight: 300;
+  line-height: 1em;
 }
 svg {
   float: left;
@@ -48,7 +49,10 @@ svg {
 }
 .flight-list .flight,
 .flight-list-items .flight {
-  padding: 10px;
+  padding: 5px 10px;
+}
+.flight-list .flight {
+  cursor: pointer;
 }
 .flight-list .flight:hover,
 .flight-list-items .flight:hover{
@@ -64,11 +68,17 @@ svg {
 .times-arrival span,
 .flight-num ,
 .status span,
-.count {
+.count,
+.flight-num,
+.count,
+.selected-destination {
   font-weight: 500;
 }
 .flight-count-dest {
   min-height: 1em;
+}
+.selected-destination-wrapper {
+  height: 2em;
 }
 .select2-container {
   width: 290px;
@@ -99,7 +109,7 @@ path.arc {
   <label>Origin:
     <select id="origin"></select>
   </label>
-  <p>Destination: <span class="selected-destination"> </span> </p>
+  <p class="selected-destination-wrapper">Destination: <span class="selected-destination"></span></p>
   <p class="flight-count-dest"></p>
   <div class="flight-list-wrapper">
     <h3>Flights<small>Click a destination to refine flights.</small></h3>
@@ -132,7 +142,8 @@ var flightstatsId = "88693368",
 var flightCountDest = d3.select(".flight-count-dest"),
     flightList = d3.select(".flight-list"),
     flightListItems = d3.select(".flight-list-items"),
-    flightListItemTemplate = flightListItems.select(".flight").remove().node();
+    backToDestinations = d3.select(".flight-list-wrapper small"),
+    flightListItemTemplate = flightListItems.select(".flight").remove().node(),
     flightListGroupTemplate = flightList.select(".flight").remove().node();
 
 var selectedDestination = d3.select(".selected-destination");
@@ -224,6 +235,7 @@ function plot(error, states, apts) {
             .transition()
             .duration(250)
             .attr("fill", "steelblue");
+        airports.style("opacity", ".8");
 
         updateArcs([]);
 
@@ -250,11 +262,17 @@ function plot(error, states, apts) {
           });
           possibleDestinations.transition().duration(250).attr("fill", "red");
 
-          flightCountDest.text(flights.length + " flights from " + airport + " in the next 6 hours.")
+          flightCountDest.html("<span style='font-weight:500;'>" + flights.length +
+            "</span> flights from <span style='font-weight:500;'>" + airport + "</span> in the next 6 hours.");
+          backToDestinations
+              .style("text-decoration", "none")
+              .style("cursor", "default")
+              .text("Click a destination to refine flights.");
+          d3.select(".flight-list").style("display", null);
+          d3.select(".flight-list-items").style("display", "none");
+
           updateArcs(links);
           updateFlightGroup(flights);
-
-
         });
 
         function updateFlightGroup(flightsData) {
@@ -279,23 +297,42 @@ function plot(error, states, apts) {
               .on("click", click);
           
           function click() {
+            console.log(possibleDestinations);
             d3.select(".flight-list").style("display", "none");
             d3.select(".flight-list-items").style("display", null);
             var clicked = d3.select(this),
                 iata = clicked.classed("flight") ? clicked.select(".airport-arrival").text() : clicked.datum().iata,
                 destination = possibleDestinations.filter(function(airport) { return airport.iata === iata; });
 
+            selectedDestination.text(nameByIata.get(iata));
+
             possibleDestinations.on("mouseover", null).on("mouseout", null).style("opacity", ".2");
             flights.on("mouseover", null).on("mouseout", null);
             destination.style("opacity", ".8");
 
+            backToDestinations
+                .style("text-decoration", "underline")
+                .style("cursor", "pointer")
+                .text("Show all destinations.")
+                .on("click", function() {
+                  backToDestinations
+                    .style("text-decoration", "none")
+                    .style("cursor", "default")
+                    .text("Click a destination to refine flights.");
+                  d3.select(".flight-list").style("display", null);
+                  d3.select(".flight-list-items").style("display", "none");
+                  flights
+                      .on("mouseover", mouseover)
+                      .on("mouseout", mouseout);
+                  possibleDestinations
+                      .on("mouseover", mouseover)
+                      .on("mouseout", mouseout)
+                      .style("opacity", ".8");
 
+                });
 
             var flightItems = flightListItems.selectAll(".flight")
-                .data(flightsData.filter(function(d){ return d.arrivalAirportFsCode === iata; }));
-            
-            console.log(flightItems);
-
+                .data(flightsData.filter(function(d) { return d.arrivalAirportFsCode === iata; }));
             flightItems.enter().append(function() { return flightListItemTemplate.cloneNode(true); });
             flightItems.exit().remove();
             flightItems.select(".airport-departure").text(function(d) { return d.departureAirportFsCode; });
@@ -333,8 +370,6 @@ function plot(error, states, apts) {
               selectedDestination.text("")
           }
         }
-
-        
 
         function updateArcs(links) {
           var arcs = arcsGroup.selectAll("path").data(links);
