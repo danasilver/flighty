@@ -62,7 +62,8 @@ svg {
 .airport-arrival,
 .times-departure span,
 .times-arrival span,
-.flight-num,
+.flight-num ,
+.status span,
 .count {
   font-weight: 500;
 }
@@ -107,6 +108,7 @@ path.arc {
         <p><span class="airport-departure"></span> to <span class="airport-arrival"></span> | Flight #<span class="flight-num"></span></p>
         <p class="times-departure">Leaving <span></span></p>
         <p class="times-arrival">Arriving <span></span></p>
+        <p class="status">Status: <span></span></p>
       </li>
     </ul> 
     <ul class="flight-list">
@@ -194,7 +196,7 @@ function plot(error, states, apts) {
       .attr("cy", function(d) { return projection([d.longitude, d.latitude])[1]; })
       .attr("r", function(d) { return size(d.count); })
       .attr("fill", "steelblue")
-      .sort(function(a, b) { return b.count - a.cItemsunt; });
+      .sort(function(a, b) { return b.count - a.count; });
 
   select.selectAll("option")
       .data(apts)
@@ -231,7 +233,7 @@ function plot(error, states, apts) {
                         "&appKey=" + flightstatsKey +
                         "&utc=false&numHours=6";
 
-        possibleDestinations.on("mouseover", null).on("mouseout", null);
+        possibleDestinations.on("mouseover", null).on("mouseout", null).on("click", null);
         d3.json(statusUrl, function(error, flights) {
           var destinations = d3.set(),
               links = [];
@@ -266,6 +268,7 @@ function plot(error, states, apts) {
           flights.select(".pluralize").text(function(d) { return d.values.length > 1 ? "flights" : "flight"; });
           flights.select(".airport-departure").text(function(d) { return d.values[0].departureAirportFsCode; });
           flights.select(".airport-arrival").text(function(d) { return d.key; });
+
           flights
               .on("mouseover", mouseover)
               .on("mouseout", mouseout)
@@ -274,7 +277,7 @@ function plot(error, states, apts) {
               .on("mouseover", mouseover)
               .on("mouseout", mouseout)
               .on("click", click);
-
+          
           function click() {
             d3.select(".flight-list").style("display", "none");
             d3.select(".flight-list-items").style("display", null);
@@ -286,16 +289,35 @@ function plot(error, states, apts) {
             flights.on("mouseover", null).on("mouseout", null);
             destination.style("opacity", ".8");
 
+
+
             var flightItems = flightListItems.selectAll(".flight")
                 .data(flightsData.filter(function(d){ return d.arrivalAirportFsCode === iata; }));
+            
+            console.log(flightItems);
+
             flightItems.enter().append(function() { return flightListItemTemplate.cloneNode(true); });
             flightItems.exit().remove();
             flightItems.select(".airport-departure").text(function(d) { return d.departureAirportFsCode; });
             flightItems.select(".airport-arrival").text(function(d) { return d.arrivalAirportFsCode; });
             flightItems.select(".flight-num").text(function(d) { return d.flightNumber; });
             flightItems.select(".times-departure span").text(function(d) { return format(iso.parse(d.departureDate.dateUtc)); });
-            flightItems.select(".times-arrival span").text(function(d) { return format(iso.parse(d.arrivalDate.dateUtc)); });
-          }
+            flightItems.select(".times-arrival span").text(function(d) { return format(iso.parse(d.arrivalDate.dateUtc));})
+            flightItems.select(".status span").text(function(d) {return flightstatuscodes(d.status);});
+
+            function flightstatuscodes (status){
+              if (status === "S") return "On time";
+              if (status === "A") return "In the air";
+              if (status === "U") return "Unknown";
+              if (status === "R") return "Redirected";
+              if (status === "L") return "Landed";
+              if (status === "D") return "Diverted";
+              if (status === "C") return "Cancelled";
+              if (status === "NO") return "Not Operational";
+            }
+          
+
+         }; 
 
           function mouseover() {
             var moused = d3.select(this)
@@ -311,7 +333,8 @@ function plot(error, states, apts) {
               selectedDestination.text("")
           }
         }
-          
+
+        
 
         function updateArcs(links) {
           var arcs = arcsGroup.selectAll("path").data(links);
