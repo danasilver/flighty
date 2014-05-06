@@ -280,6 +280,9 @@ function plot(error, states, apts) {
             .attr("fill", "steelblue");
         airports.style("opacity", ".8");
 
+        // Remove destination text if it isn't already blank
+        selectedDestination.text("");
+
         // Exit all arcs (no data)
         updateArcs([]);
 
