@@ -6,6 +6,10 @@
 body {
   font-family: "Helvetica Neue", Helvetica, sans-serif;
 }
+.container {
+  width: 1300px;
+  margin: auto;
+}
 .map {
   width: 950px;
   float: left;
@@ -101,31 +105,33 @@ path.arc {
 </style>
 </head>
 <body>
-<div class="map">
-  <h1>flighty</h1>
-  <svg id="map"></svg>
-</div>
-<div class="interface">
-  <label>Origin:
-    <select id="origin"></select>
-  </label>
-  <p class="selected-destination-wrapper">Destination: <span class="selected-destination"></span></p>
-  <p class="flight-count-dest"></p>
-  <div class="flight-list-wrapper">
-    <h3>Flights<small>Click a destination to refine flights.</small></h3>
-    <ul class="flight-list-items" style="display: none">
-    <li class="flight">
-        <p><span class="airport-departure"></span> to <span class="airport-arrival"></span> | Flight #<span class="flight-num"></span></p>
-        <p class="times-departure">Leaving <span></span></p>
-        <p class="times-arrival">Arriving <span></span></p>
-        <p class="status">Status: <span></span></p>
-      </li>
-    </ul> 
-    <ul class="flight-list">
+<div class="container">
+  <div class="map">
+    <h1>flighty</h1>
+    <svg id="map"></svg>
+  </div>
+  <div class="interface">
+    <label>Origin:
+      <select id="origin"></select>
+    </label>
+    <p class="selected-destination-wrapper">Destination: <span class="selected-destination"></span></p>
+    <p class="flight-count-dest"></p>
+    <div class="flight-list-wrapper">
+      <h3>Flights<small>Click a destination to refine flights.</small></h3>
+      <ul class="flight-list-items" style="display: none">
       <li class="flight">
-        <p><span class="count"></span> <span class="pluralize"></span> from <span class="airport-departure"></span> to <span class="airport-arrival"></span></span>
-      </li>
-    </ul>
+          <p><span class="airport-departure"></span> to <span class="airport-arrival"></span> | Flight #<span class="flight-num"></span></p>
+          <p class="times-departure">Leaving <span></span></p>
+          <p class="times-arrival">Arriving <span></span></p>
+          <p class="status">Status: <span></span></p>
+        </li>
+      </ul> 
+      <ul class="flight-list">
+        <li class="flight">
+          <p><span class="count"></span> <span class="pluralize"></span> from <span class="airport-departure"></span> to <span class="airport-arrival"></span></p>
+        </li>
+      </ul>
+    </div>
   </div>
 </div>
 <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
