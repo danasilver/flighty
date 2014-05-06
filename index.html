@@ -436,11 +436,11 @@ function plot(error, states, apts) {
               flightList.style("display", null);
               flightListItems.style("display", "none");
               flights
-                  .on("mouseover", mouseover)
-                  .on("mouseout", mouseout);
+                  .on("mouseover", mouseoverDestination)
+                  .on("mouseout", mouseoutDestination);
               possibleDestinations
-                  .on("mouseover", mouseover)
-                  .on("mouseout", mouseout)
+                  .on("mouseover", mouseoverDestination)
+                  .on("mouseout", mouseoutDestination)
                   .style("opacity", ".8");
             }
 
