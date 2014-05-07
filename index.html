@@ -101,6 +101,24 @@ path.arc {
   fill: none;
   stroke: #000;
 }
+.price {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 2px;
+}
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+.axis.y line,
+.axis.y path {
+  stroke: lightgrey;
+}
+.axis text {
+  font-size: 10px;
+}
 </style>
 </head>
 <body>
@@ -141,6 +159,7 @@ path.arc {
         </li>
       </ul>
     </div>
+    <svg id="prices"></svg>
   </div>
 </div>
 <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
@@ -154,6 +173,8 @@ var flightstatsId = "88693368",
     flightstatsKey = "2b087f77a7151f8283938c3df55358e1"
     flightstatsStatusBaseUrl = "http://flightstats-api.herokuapp.com/flex/flightstatus/rest/v2/json/airport/status/";
 
+var hotwireBaseUrl = "http://hotwire.herokuapp.com/v1/tripstarter/air?apikey=zy95exmjnh5njr5uqtz3gyq3&format=json&sort=date";
+
 // Cache selectors and create DOM templates
 var select = d3.select("#origin"),
     flightCountDest = d3.select(".flight-count-dest"),
@@ -166,7 +187,8 @@ var select = d3.select("#origin"),
 
 // Time formats for iso inputs and readable outputs
 var format = d3.time.format("%A, %b %e at %I:%M %p"),
-    iso = d3.time.format.utc("%Y-%m-%dT%H:%M:%S.%LZ");
+    iso = d3.time.format.utc("%Y-%m-%dT%H:%M:%S.%LZ"),
+    hotwireFormat = d3.time.format("%m/%d/%Y");
 
 // Width and height of the #map SVG element
 var width = 950,
@@ -191,6 +213,63 @@ var projection = d3.geo.azimuthal()
 // Path for states and arcs
 var path = d3.geo.path()
     .projection(projection);
+
+var pricesDate = new Date();
+
+var pricesMargin = {top: 10, right: 30, bottom: 20, left: 40},
+    pricesWidth = 350 - pricesMargin.left - pricesMargin.right,
+    pricesHeight = 150 - pricesMargin.top - pricesMargin.bottom;
+
+var pricesX = d3.time.scale()
+    .domain([new Date(pricesDate.getFullYear() - 1, pricesDate.getMonth() + 1, pricesDate.getDate()),
+             new Date(pricesDate.getFullYear(), pricesDate.getMonth() + 1, pricesDate.getDate())])
+    .range([0, pricesWidth]);
+
+var pricesY = d3.scale.linear()
+    .domain([100, 400])
+    .range([pricesHeight, 0]);
+
+var xAxis = d3.svg.axis()
+    .scale(pricesX)
+    .ticks(12)
+    .tickFormat(d3.time.format("%b"))
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(pricesY)
+    .ticks(5)
+    .tickSize(-pricesWidth)
+    .tickFormat(function(d) { return "$" + d; })
+    .orient("left");
+
+var prices = d3.select("#prices")
+    .attr("width", pricesWidth + pricesMargin.left + pricesMargin.right)
+    .attr("height", pricesHeight + pricesMargin.top + pricesMargin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + pricesMargin.left + "," + pricesMargin.top + ")")
+
+var line = d3.svg.line()
+    .x(function(d) { return pricesX(d.date); })
+    .y(function(d) { return pricesY(d.price); });
+
+var xAxisGroup = prices.append("g")
+    .attr("class", "x axis")
+    .attr("transform", "translate(0," + pricesHeight + ")")
+    .call(xAxis);
+
+var yAxisGroup = prices.append("g")
+    .attr("class", "y axis")
+    .call(yAxis);
+
+var pricesLine = prices.append("path")
+    .attr("class", "price");
+
+prices.append("text")
+    .attr("class", "message")
+    .attr("x", pricesWidth / 2)
+    .attr("y", pricesHeight / 2)
+    .style("text-anchor", "middle")
+    .text("Historic price data...");
 
 queue()
     .defer(d3.json, "http://www.cs.middlebury.edu/~candrews/classes/infovis/data/us-states.json")
@@ -395,6 +474,53 @@ function plot(error, states, apts) {
                   : clicked.datum().iata,
                 destination = possibleDestinations
                   .filter(function(airport) { return airport.iata === iata; });
+
+            // Construct Hotwire API request URL
+            var priceUrl = hotwireBaseUrl + "&origin=" + airport + "&dest=" + iata;
+
+            d3.json(priceUrl, function(error, histories) {
+              if (!error && histories.Result.length === 0) {
+                console.log(prices.select(".message"));
+                prices.select(".message")
+                    .attr("class", "message")
+                    .attr("x", pricesWidth / 2)
+                    .attr("y", pricesHeight / 2)
+                    .style("display", null)
+                    .style("text-anchor", "middle")
+                    .text("No price data available.");
+              } else {
+                prices.select(".message").style("display", "none");
+              }
+
+              // Remove false positive reports (e.g. OAK with SFO)
+              histories = histories.Result.filter(function(history) {
+                 return history.DestinationAirportCode === iata && history.OrigAirportCode === airport;
+              });
+
+              histories.forEach(function(history) {
+                history.date = hotwireFormat.parse(history.WeekStartDate);
+                history.price = +history.AveragePrice;
+              });
+
+              pricesX.domain(d3.extent(histories, function(d) { return d.date; }));
+              pricesY.domain(d3.extent(histories, function(d) { return d.price; }));
+
+              pricesLine.datum(histories || [0])
+                  .transition()
+                  .duration(750)
+                  .attr("d", line);
+
+              xAxisGroup
+                  .transition()
+                  .duration(750)
+                  .call(xAxis);
+
+              yAxisGroup
+                  .transition()
+                  .duration(750)
+                  .call(yAxis);
+
+            });
 
             // Set destination text in case click happened after mouseover
             // was deactivated
